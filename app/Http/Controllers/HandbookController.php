@@ -49,4 +49,10 @@ class HandbookController extends Controller
         $handbook->delete();
         return response()->json(['message' => '刪除成功']);
     }
+
+    public function preview(Handbook $handbook)
+    {
+        $title = "{$handbook->year}年 第{$handbook->grade}年級 {$handbook->semester}學期 {$handbook->lesson}";
+        return view('preview', ['title' => $title, 'content' => $handbook->content]);
+    }
 }

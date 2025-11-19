@@ -70,6 +70,15 @@
             <label>課別：</label>
             <input v-model="handbook.lesson" type="text" required class="form-control" placeholder="課別">
           </div>
+          <div class="form-group">
+            <label class="switch-label">
+              <span>發布：</span>
+              <label class="switch">
+                <input type="checkbox" v-model="isPublished" @change="togglePublish">
+                <span class="slider"></span>
+              </label>
+            </label>
+          </div>
           <div class="form-actions">
             <button type="submit" class="btn-save">儲存</button>
             <button type="button" @click="$router.push('/')" class="btn-cancel">取消</button>
@@ -90,7 +99,7 @@ export default {
   props: ['id'],
   data() {
     return {
-      handbook: { year: new Date().getFullYear() - 1911, grade: '', semester: '', lesson: '', content: '' },
+      handbook: { year: new Date().getFullYear() - 1911, grade: '', semester: '', lesson: '', content: '', status: 0, published_at: 0 },
       editor: null,
       showZhuyinPanel: false,
       zhuyinText: '',
@@ -99,7 +108,18 @@ export default {
       htmlMode: false,
       htmlTextarea: null,
       autoSaveTimer: null,
-      lastSaved: null
+      lastSaved: null,
+      isPublished: false
+    }
+  },
+  computed: {
+    formatTime() {
+      return (date) => {
+        const h = date.getHours().toString().padStart(2, '0')
+        const m = date.getMinutes().toString().padStart(2, '0')
+        const s = date.getSeconds().toString().padStart(2, '0')
+        return `${h}:${m}:${s}`
+      }
     }
   },
   async mounted() {
@@ -128,6 +148,11 @@ export default {
         ...data,
         content: this.decodeHtml(data.content || '')
       }
+      this.isPublished = data.status === 1
+    },
+    togglePublish() {
+      this.handbook.status = this.isPublished ? 1 : 0
+      this.handbook.published_at = this.isPublished ? Math.floor(Date.now() / 1000) : 0
     },
     decodeHtml(html) {
       const txt = document.createElement('textarea')
@@ -311,17 +336,6 @@ export default {
       } catch (error) {
         console.error('注音 API 請求失敗:', error)
         return null
-      }
-    },
-
-  },
-  computed: {
-    formatTime() {
-      return (date) => {
-        const h = date.getHours().toString().padStart(2, '0')
-        const m = date.getMinutes().toString().padStart(2, '0')
-        const s = date.getSeconds().toString().padStart(2, '0')
-        return `${h}:${m}:${s}`
       }
     }
   }
@@ -539,4 +553,12 @@ export default {
 @media (max-width: 480px) {
   .panel-actions button { width: 100%; margin-bottom: 0.5rem; margin-right: 0; }
 }
+
+.switch-label { display: flex; align-items: center; justify-content: space-between; }
+.switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: #8bc34a; }
+input:checked + .slider:before { transform: translateX(26px); }
 </style>

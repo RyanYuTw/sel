@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div style="max-width: 100%; overflow: hidden;">
     <textarea ref="editor" v-model="content"></textarea>
   </div>
 </template>
@@ -59,7 +59,7 @@ export default {
         const cleanedList = zhuyinList.map(z => z.replace(/[（(]又音[）)]/g, '').replace(/[（(]語音[）)]/g, '').replace(/[（(]讀音[）)]/g, ''))
         const zhuyin = cleanedList[0]
         const html = this.formatZhuyinHTML(char, zhuyin)
-        editor.insertContent(html + '<span style="font-size: inherit;">&#8203;</span>')
+        editor.insertContent(html)
       } else {
         editor.insertContent(char)
       }
@@ -103,18 +103,18 @@ export default {
         }
       }
       
-      editor.insertContent(result + '<span style="font-size: inherit;">&#8203;</span>')
+      editor.insertContent(result)
       editor.selection.collapse(false)
     },
     showZhuyinDialog(editor, char, zhuyinList) {
       const cleanedList = zhuyinList.map(z => z.replace(/[（(]又音[）)]/g, '').replace(/[（(]語音[）)]/g, '').replace(/[（(]讀音[）)]/g, ''))
       
       const listHtml = cleanedList.map((z, i) => 
-        `<div style="padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #e0e0e0; font-size: 16px; transition: all 0.2s;" data-index="${i}" onmouseover="this.style.backgroundColor='#8bc34a'; this.style.color='white'" onmouseout="this.style.backgroundColor='white'; this.style.color='black'">${z}</div>`
+        `<div style="padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #e0e0e0; font-size: 16px; transition: all 0.2s;" data-index="${i}" onmouseover="this.style.backgroundColor='#8bc34a'; this.style.color='white'" onmouseout="this.style.backgroundColor='white'; this.style.color='black'"><strong>${i + 1}.</strong> ${z}</div>`
       ).join('')
       
-      editor.windowManager.open({
-        title: `選擇 "${char}" 的注音`,
+      const dialog = editor.windowManager.open({
+        title: `選擇 "${char}" 的注音 (按數字鍵選擇)`,
         body: {
           type: 'panel',
           items: [
@@ -146,11 +146,25 @@ export default {
               const index = parseInt(target.dataset.index)
               const zhuyin = cleanedList[index]
               const html = this.formatZhuyinHTML(char, zhuyin)
-              editor.insertContent(html + '<span style="font-size: inherit;">&#8203;</span>')
+              editor.insertContent(html)
               editor.selection.collapse(false)
               editor.windowManager.close()
             }
           })
+          
+          // 監聽鍵盤數字鍵
+          const keyHandler = (e) => {
+            const num = parseInt(e.key)
+            if (num >= 1 && num <= cleanedList.length) {
+              const zhuyin = cleanedList[num - 1]
+              const html = this.formatZhuyinHTML(char, zhuyin)
+              editor.insertContent(html)
+              editor.selection.collapse(false)
+              editor.windowManager.close()
+              document.removeEventListener('keydown', keyHandler)
+            }
+          }
+          document.addEventListener('keydown', keyHandler)
         }
       }, 100)
     },
@@ -182,7 +196,7 @@ export default {
         zhuyinHTML = zhuyinBase.split('').map(char => `<span class="zhuyin-char">${char}</span>`).join('')
       }
       
-      return `<span class="char-with-zhuyin">${char}<span class="vertical-zhuyin">${zhuyinHTML}</span></span>`
+      return `<span class="char-with-zhuyin" contenteditable="false">${char}<span class="vertical-zhuyin">${zhuyinHTML}</span></span>`
     },
     async initEditor() {
       try {
@@ -217,11 +231,16 @@ export default {
         tinymce.init({
           target: this.$refs.editor,
           height: calcHeight(),
+          width: '100%',
+          resize: false,
           language: 'zh_TW',
           language_url: '/langs/zh_TW.js',
+          promotion: false,
+          branding: false,
+          statusbar: false,
           menubar: 'edit insert view format table tools',
-          plugins: 'lists link image table media code fullscreen searchreplace wordcount visualblocks charmap anchor preview contextmenu',
-          toolbar: 'undo redo | formatselect fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright | bullist numlist | outdent indent | link anchor image table media | hr charmap fontawesome zhuyin cleartableborder | removeformat | searchreplace visualblocks fullscreen preview code',
+          plugins: 'lists link image table media code fullscreen searchreplace wordcount visualblocks charmap anchor preview',
+          toolbar: 'undo redo | formatselect fontsize fontsizeinput | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link anchor image table media | hr charmap fontawesome zhuyin inputfield textborder cleartableborder | removeformat | searchreplace visualblocks fullscreen preview code',
           fontsize_formats: '8pt 10pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt 72pt',
           extended_valid_elements: 'i[class|style]',
           image_title: true,
@@ -240,19 +259,88 @@ export default {
             .catch(error => reject(error))
           }),
           content_css: ['https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'],
+          content_css_cors: true,
+          body_class: 'mce-content-body',
           content_style: `
-            body { font-family: Arial, sans-serif; font-size: 14px; }
-            .char-with-zhuyin { display: inline-flex; align-items: center; margin-right: 0.2rem; }
-            .vertical-zhuyin { display: flex; flex-direction: column; justify-content: center; margin-left: 1px; max-height: 1em; overflow: visible; position: relative; }
+            * { max-width: 100%; box-sizing: border-box; }
+            html { 
+              height: 100%; 
+              overflow-x: hidden !important;
+              width: 100% !important;
+            }
+            body { 
+              font-family: Arial, sans-serif; 
+              font-size: 14px; 
+              padding: 20px;
+              background: white;
+              border: 2px solid #8bc34a;
+              border-radius: 8px;
+              margin: 0 auto;
+              min-height: 100%;
+              max-width: 800px;
+              width: 100% !important;
+              box-sizing: border-box;
+              overflow-x: hidden !important;
+              overflow-wrap: break-word;
+              word-break: break-word;
+            }
+            i[class*="fa-"] { 
+              display: inline-block;
+              user-select: all;
+              cursor: pointer;
+              padding: 2px;
+              border: 1px solid transparent;
+            }
+            i[class*="fa-"]:hover {
+              background: #e3f2fd;
+              border-color: #2196f3;
+              border-radius: 3px;
+            }
+            .char-with-zhuyin { display: inline-flex; align-items: center; margin-right: 0.2rem; flex-shrink: 0; user-select: all; }
+            .vertical-zhuyin { display: flex; flex-direction: column; justify-content: center; margin-left: 1px; max-height: 1em; overflow: visible; position: relative; flex-shrink: 0; }
             .zhuyin-char { font-size: 0.28em; color: #333; line-height: 0.9; }
             .zhuyin-with-tone { display: flex; flex-direction: column; position: relative; }
             .tone-mark { position: absolute; right: -0.3em; top: 50%; transform: translateY(-50%); font-size: 0.28em; }
             .zhuyin-with-light { position: relative; display: inline-block; }
             .light-tone { position: absolute; top: -0.6em; left: 0; right: 0; text-align: center; font-size: 0.7em; color: #000; }
+            p { word-wrap: break-word; overflow-wrap: break-word; }
           `,
           skin_url: '/skins/ui/oxide',
           setup: (editor) => {
             this.editor = editor
+            
+            // 添加字體大小輸入框
+            editor.ui.registry.addButton('fontsizeinput', {
+              text: '字體',
+              onAction: () => {
+                editor.windowManager.open({
+                  title: '設定字體大小',
+                  body: {
+                    type: 'panel',
+                    items: [
+                      {
+                        type: 'input',
+                        name: 'fontsize',
+                        label: '字體大小 (pt)',
+                        placeholder: '例如: 16'
+                      }
+                    ]
+                  },
+                  buttons: [
+                    { type: 'cancel', text: '取消' },
+                    { type: 'submit', text: '套用', primary: true }
+                  ],
+                  onSubmit: (api) => {
+                    const data = api.getData()
+                    const size = data.fontsize.trim()
+                    if (size && !isNaN(size)) {
+                      editor.execCommand('FontSize', false, size + 'pt')
+                    }
+                    api.close()
+                  }
+                })
+              }
+            })
             
             // 添加清除表格格線按鈕
             editor.ui.registry.addButton('cleartableborder', {
@@ -281,6 +369,63 @@ export default {
               }
             })
             
+            // 添加儲存格框線控制按鈕
+            editor.ui.registry.addButton('cellborder', {
+              text: '儲存格框線',
+              onAction: () => {
+                const cell = editor.dom.getParent(editor.selection.getNode(), 'td,th')
+                if (cell) {
+                  editor.windowManager.open({
+                    title: '設定儲存格框線',
+                    body: {
+                      type: 'panel',
+                      items: [
+                        {
+                          type: 'checkbox',
+                          name: 'top',
+                          label: '上框線'
+                        },
+                        {
+                          type: 'checkbox',
+                          name: 'right',
+                          label: '右框線'
+                        },
+                        {
+                          type: 'checkbox',
+                          name: 'bottom',
+                          label: '下框線'
+                        },
+                        {
+                          type: 'checkbox',
+                          name: 'left',
+                          label: '左框線'
+                        }
+                      ]
+                    },
+                    buttons: [
+                      { type: 'cancel', text: '取消' },
+                      { type: 'submit', text: '套用', primary: true }
+                    ],
+                    onSubmit: (api) => {
+                      const data = api.getData()
+                      cell.style.borderTop = data.top ? '1px solid #000' : 'none'
+                      cell.style.borderRight = data.right ? '1px solid #000' : 'none'
+                      cell.style.borderBottom = data.bottom ? '1px solid #000' : 'none'
+                      cell.style.borderLeft = data.left ? '1px solid #000' : 'none'
+                      editor.nodeChanged()
+                      api.close()
+                    }
+                  })
+                } else {
+                  editor.notificationManager.open({
+                    text: '請先選擇儲存格',
+                    type: 'warning',
+                    timeout: 2000
+                  })
+                }
+              }
+            })
+            
             // 添加注音切換按鈕
             editor.ui.registry.addToggleButton('zhuyin', {
               text: '注音',
@@ -299,6 +444,94 @@ export default {
               }
             })
             
+            // 添加插入輸入欄位按鈕
+            editor.ui.registry.addButton('inputfield', {
+              text: '輸入欄',
+              onAction: () => {
+                editor.windowManager.open({
+                  title: '插入輸入欄位',
+                  body: {
+                    type: 'panel',
+                    items: [
+                      {
+                        type: 'input',
+                        name: 'label',
+                        label: '欄位標籤',
+                        placeholder: '例如: 姓名、日期、班級'
+                      },
+                      {
+                        type: 'selectbox',
+                        name: 'type',
+                        label: '欄位類型',
+                        items: [
+                          { text: '單行文字', value: 'text' },
+                          { text: '多行文字', value: 'textarea' },
+                          { text: '日期', value: 'date' }
+                        ]
+                      },
+                      {
+                        type: 'input',
+                        name: 'width',
+                        label: '寬度 (px)',
+                        placeholder: '例如: 200 (留空則自動)'
+                      }
+                    ]
+                  },
+                  buttons: [
+                    { type: 'cancel', text: '取消' },
+                    { type: 'submit', text: '插入', primary: true }
+                  ],
+                  onSubmit: (api) => {
+                    const data = api.getData()
+                    const label = data.label.trim() || '輸入'
+                    const type = data.type || 'text'
+                    const width = data.width.trim()
+                    editor.insertContent(`<span class="input-field" data-label="${label}" data-type="${type}" data-width="${width}" contenteditable="false" style="display: inline-block; background: #e3f2fd; border: 2px dashed #2196f3; padding: 4px 12px; margin: 0 4px; border-radius: 4px; color: #1976d2; font-weight: 500; min-width: 80px; white-space: nowrap;">[${label}]</span>&nbsp;`)
+                    api.close()
+                  }
+                })
+              }
+            })
+            
+            // 添加文字外框按鈕
+            editor.ui.registry.addToggleButton('textborder', {
+              text: '文字外框',
+              onAction: (api) => {
+                const node = editor.selection.getNode()
+                const isActive = node.style && node.style.border
+                
+                if (isActive) {
+                  const content = node.innerHTML
+                  editor.dom.replace(editor.dom.createFragment(content), node)
+                  api.setActive(false)
+                } else {
+                  const selectedText = editor.selection.getContent({ format: 'text' })
+                  if (selectedText) {
+                    const html = `<span style="font-size: inherit;">&#8203;</span><span style="border: 1px solid #000;">&nbsp;${editor.selection.getContent()}&nbsp;</span><span style="font-size: inherit;">&#8203;</span>`
+                    editor.selection.setContent(html)
+                    const range = editor.selection.getRng()
+                    range.collapse(false)
+                    editor.selection.setRng(range)
+                    api.setActive(true)
+                  } else {
+                    editor.notificationManager.open({
+                      text: '請先選取文字',
+                      type: 'warning',
+                      timeout: 2000
+                    })
+                  }
+                }
+              },
+              onSetup: (api) => {
+                const nodeChangeHandler = () => {
+                  const node = editor.selection.getNode()
+                  api.setActive(node.style && node.style.border ? true : false)
+                }
+                editor.on('NodeChange', nodeChangeHandler)
+                return () => editor.off('NodeChange', nodeChangeHandler)
+              }
+            })
+            
             // 添加Font Awesome按鈕
             editor.ui.registry.addButton('fontawesome', {
               text: 'Icon',
@@ -310,9 +543,9 @@ export default {
                     items: [
                       {
                         type: 'input',
-                        name: 'iconcode',
-                        label: '圖標代碼',
-                        placeholder: '例如: fas fa-home'
+                        name: 'iconhtml',
+                        label: 'HTML 標籤',
+                        placeholder: '例如: <i class="fa-regular fa-lightbulb"></i>'
                       }
                     ]
                   },
@@ -322,9 +555,10 @@ export default {
                   ],
                   onSubmit: (api) => {
                     const data = api.getData()
-                    const iconCode = data.iconcode.trim()
-                    if (iconCode) {
-                      editor.insertContent(`<i class="${iconCode}"></i>&nbsp;`)
+                    const iconHtml = data.iconhtml.trim()
+                    if (iconHtml) {
+                      editor.insertContent(iconHtml)
+                      editor.selection.collapse(false)
                     }
                     api.close()
                   }
@@ -336,6 +570,86 @@ export default {
               const content = editor.getContent()
               this.content = content
               this.$emit('input', content)
+            })
+            
+            // 處理方向鍵跳過注音
+            editor.on('keydown', (e) => {
+              if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+              
+              const selection = editor.selection
+              const range = selection.getRng()
+              let node = range.startContainer
+              
+              // 檢查是否在注音元素內
+              let zhuyinSpan = node.nodeType === 1 ? node : node.parentElement
+              if (zhuyinSpan) {
+                zhuyinSpan = zhuyinSpan.closest('.char-with-zhuyin')
+              }
+              
+              if (zhuyinSpan) {
+                e.preventDefault()
+                const newRange = editor.dom.createRng()
+                if (e.key === 'ArrowRight') {
+                  newRange.setStartAfter(zhuyinSpan)
+                } else {
+                  newRange.setStartBefore(zhuyinSpan)
+                }
+                newRange.collapse(true)
+                selection.setRng(newRange)
+                return
+              }
+              
+              // 向右：檢查下一個節點
+              if (e.key === 'ArrowRight') {
+                let next = node.nodeType === 3 && range.startOffset === node.length ? node.nextSibling : null
+                if (!next && node.parentElement) {
+                  const parent = node.parentElement
+                  if (range.startOffset === node.length || node.nodeType === 1) {
+                    next = parent.nextSibling
+                  }
+                }
+                
+                if (next && next.classList && next.classList.contains('char-with-zhuyin')) {
+                  e.preventDefault()
+                  const newRange = editor.dom.createRng()
+                  // 找下一個注音後的節點
+                  let target = next.nextSibling
+                  while (target && target.classList && target.classList.contains('char-with-zhuyin')) {
+                    target = target.nextSibling
+                  }
+                  if (target) {
+                    if (target.nodeType === 3) {
+                      newRange.setStart(target, 0)
+                    } else if (target.classList && target.classList.contains('char-with-zhuyin')) {
+                      newRange.setStartBefore(target)
+                    } else {
+                      newRange.setStart(target, 0)
+                    }
+                  } else {
+                    newRange.setStartAfter(next)
+                  }
+                  newRange.collapse(true)
+                  selection.setRng(newRange)
+                }
+              }
+              // 向左：檢查上一個節點
+              else {
+                let prev = node.nodeType === 3 && range.startOffset === 0 ? node.previousSibling : null
+                if (!prev && node.parentElement) {
+                  const parent = node.parentElement
+                  if (range.startOffset === 0 || node.nodeType === 1) {
+                    prev = parent.previousSibling
+                  }
+                }
+                
+                if (prev && prev.classList && prev.classList.contains('char-with-zhuyin')) {
+                  e.preventDefault()
+                  const newRange = editor.dom.createRng()
+                  newRange.setStartBefore(prev)
+                  newRange.collapse(true)
+                  selection.setRng(newRange)
+                }
+              }
             })
           },
           init_instance_callback: (editor) => {
@@ -355,9 +669,15 @@ export default {
                 const node = editor.selection.getNode()
                 const range = editor.selection.getRng()
                 
+                // 檢查是否在文字節點中
+                const textNode = node.nodeType === 3 ? node : node.firstChild
+                if (!textNode || textNode.nodeType !== 3) {
+                  return
+                }
+                
                 // 向前刪除一個字元
                 if (range.startOffset > 0) {
-                  range.setStart(node.firstChild || node, range.startOffset - 1)
+                  range.setStart(textNode, range.startOffset - 1)
                   range.deleteContents()
                 }
                 
@@ -371,15 +691,16 @@ export default {
                   } else {
                     const zhuyin = uniqueList[0]
                     const html = this.formatZhuyinHTML(char, zhuyin)
-                    editor.insertContent(html + '<span style="font-size: inherit;">&#8203;</span>')
+                    editor.insertContent(html)
                     editor.selection.collapse(false)
                   }
                 } else {
-                  editor.insertContent(char + '<span style="font-size: inherit;">&#8203;</span>')
+                  editor.insertContent(char)
                   editor.selection.collapse(false)
                 }
               }
             })
+
           }
         })
       } catch (error) {
