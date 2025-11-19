@@ -98,6 +98,7 @@ export default {
           const cleanedList = zhuyinList.map(z => z.replace(/[（(]又音[）)]/g, '').replace(/[（(]語音[）)]/g, '').replace(/[（(]讀音[）)]/g, ''))
           const zhuyin = cleanedList[0]
           result += this.formatZhuyinHTML(char, zhuyin)
+          if (i < chineseChars.length - 1) result += String.fromCharCode(8203)
         } else {
           result += char
         }
@@ -572,84 +573,69 @@ export default {
               this.$emit('input', content)
             })
             
-            // 處理方向鍵跳過注音
+            // 處理方向鍵跳過注音和零寬空格
             editor.on('keydown', (e) => {
               if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
               
-              const selection = editor.selection
-              const range = selection.getRng()
-              let node = range.startContainer
-              
-              // 檢查是否在注音元素內
-              let zhuyinSpan = node.nodeType === 1 ? node : node.parentElement
-              if (zhuyinSpan) {
-                zhuyinSpan = zhuyinSpan.closest('.char-with-zhuyin')
-              }
-              
-              if (zhuyinSpan) {
-                e.preventDefault()
-                const newRange = editor.dom.createRng()
-                if (e.key === 'ArrowRight') {
-                  newRange.setStartAfter(zhuyinSpan)
-                } else {
-                  newRange.setStartBefore(zhuyinSpan)
-                }
-                newRange.collapse(true)
-                selection.setRng(newRange)
-                return
-              }
-              
-              // 向右：檢查下一個節點
-              if (e.key === 'ArrowRight') {
-                let next = node.nodeType === 3 && range.startOffset === node.length ? node.nextSibling : null
-                if (!next && node.parentElement) {
-                  const parent = node.parentElement
-                  if (range.startOffset === node.length || node.nodeType === 1) {
-                    next = parent.nextSibling
-                  }
-                }
+              setTimeout(() => {
+                const selection = editor.selection
+                const range = selection.getRng()
+                let node = range.startContainer
                 
-                if (next && next.classList && next.classList.contains('char-with-zhuyin')) {
-                  e.preventDefault()
+                // 檢查是否在零寬空格上
+                if (node.nodeType === 3 && node.textContent === String.fromCharCode(8203)) {
                   const newRange = editor.dom.createRng()
-                  // 找下一個注音後的節點
-                  let target = next.nextSibling
-                  while (target && target.classList && target.classList.contains('char-with-zhuyin')) {
-                    target = target.nextSibling
-                  }
-                  if (target) {
-                    if (target.nodeType === 3) {
-                      newRange.setStart(target, 0)
-                    } else if (target.classList && target.classList.contains('char-with-zhuyin')) {
-                      newRange.setStartBefore(target)
+                  if (e.key === 'ArrowRight') {
+                    if (node.nextSibling) {
+                      newRange.setStartBefore(node.nextSibling)
                     } else {
-                      newRange.setStart(target, 0)
+                      newRange.setStartAfter(node)
                     }
                   } else {
-                    newRange.setStartAfter(next)
+                    if (node.previousSibling) {
+                      newRange.setStartAfter(node.previousSibling)
+                    } else {
+                      newRange.setStartBefore(node)
+                    }
                   }
                   newRange.collapse(true)
                   selection.setRng(newRange)
-                }
-              }
-              // 向左：檢查上一個節點
-              else {
-                let prev = node.nodeType === 3 && range.startOffset === 0 ? node.previousSibling : null
-                if (!prev && node.parentElement) {
-                  const parent = node.parentElement
-                  if (range.startOffset === 0 || node.nodeType === 1) {
-                    prev = parent.previousSibling
-                  }
+                  return
                 }
                 
-                if (prev && prev.classList && prev.classList.contains('char-with-zhuyin')) {
-                  e.preventDefault()
+                // 檢查是否在注音元素內
+                let zhuyinSpan = node.nodeType === 1 ? node : node.parentElement
+                if (zhuyinSpan) {
+                  zhuyinSpan = zhuyinSpan.closest('.char-with-zhuyin')
+                }
+                
+                if (zhuyinSpan) {
                   const newRange = editor.dom.createRng()
-                  newRange.setStartBefore(prev)
+                  if (e.key === 'ArrowRight') {
+                    newRange.setStartAfter(zhuyinSpan)
+                    // 跳過零寬空格
+                    if (zhuyinSpan.nextSibling && zhuyinSpan.nextSibling.nodeType === 3 && zhuyinSpan.nextSibling.textContent === String.fromCharCode(8203)) {
+                      if (zhuyinSpan.nextSibling.nextSibling) {
+                        newRange.setStartBefore(zhuyinSpan.nextSibling.nextSibling)
+                      } else {
+                        newRange.setStartAfter(zhuyinSpan.nextSibling)
+                      }
+                    }
+                  } else {
+                    newRange.setStartBefore(zhuyinSpan)
+                    // 跳過零寬空格
+                    if (zhuyinSpan.previousSibling && zhuyinSpan.previousSibling.nodeType === 3 && zhuyinSpan.previousSibling.textContent === String.fromCharCode(8203)) {
+                      if (zhuyinSpan.previousSibling.previousSibling) {
+                        newRange.setStartAfter(zhuyinSpan.previousSibling.previousSibling)
+                      } else {
+                        newRange.setStartBefore(zhuyinSpan.previousSibling)
+                      }
+                    }
+                  }
                   newRange.collapse(true)
                   selection.setRng(newRange)
                 }
-              }
+              }, 0)
             })
           },
           init_instance_callback: (editor) => {
