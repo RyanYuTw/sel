@@ -299,7 +299,7 @@ export default {
             }
             .char-with-zhuyin { display: inline-flex; align-items: center; margin-right: 0.2rem; flex-shrink: 0; }
             .vertical-zhuyin { display: flex; flex-direction: column; justify-content: center; margin-left: 1px; max-height: 1em; overflow: visible; position: relative; flex-shrink: 0; pointer-events: none; user-select: none; }
-            .zhuyin-char { font-size: 0.28em; color: #333; line-height: 0.9; }
+            .zhuyin-char { font-size: 0.28em; color: inherit; line-height: 0.9; }
             .zhuyin-with-tone { display: flex; flex-direction: column; position: relative; }
             .tone-mark { position: absolute; right: -0.3em; top: 50%; transform: translateY(-50%); font-size: 0.28em; }
             .zhuyin-with-light { position: relative; display: inline-block; }
@@ -495,41 +495,66 @@ export default {
             })
             
             // 添加文字外框按鈕
-            editor.ui.registry.addToggleButton('textborder', {
+            editor.ui.registry.addButton('textborder', {
               text: '文字外框',
-              onAction: (api) => {
-                const node = editor.selection.getNode()
-                const isActive = node.style && node.style.border
+              onAction: () => {
+                const selectedText = editor.selection.getContent({ format: 'text' })
+                if (!selectedText) {
+                  editor.notificationManager.open({
+                    text: '請先選取文字',
+                    type: 'warning',
+                    timeout: 2000
+                  })
+                  return
+                }
                 
-                if (isActive) {
-                  const content = node.innerHTML
-                  editor.dom.replace(editor.dom.createFragment(content), node)
-                  api.setActive(false)
-                } else {
-                  const selectedText = editor.selection.getContent({ format: 'text' })
-                  if (selectedText) {
-                    const html = `<span style="font-size: inherit;">&#8203;</span><span style="border: 1px solid #000;">&nbsp;${editor.selection.getContent()}&nbsp;</span><span style="font-size: inherit;">&#8203;</span>`
+                editor.windowManager.open({
+                  title: '文字外框設定',
+                  body: {
+                    type: 'panel',
+                    items: [
+                      {
+                        type: 'colorinput',
+                        name: 'borderColor',
+                        label: '外框顏色'
+                      },
+                      {
+                        type: 'colorinput',
+                        name: 'bgColor',
+                        label: '填滿顏色'
+                      },
+                      {
+                        type: 'colorinput',
+                        name: 'textColor',
+                        label: '文字顏色'
+                      }
+                    ]
+                  },
+                  buttons: [
+                    { type: 'cancel', text: '取消' },
+                    { type: 'submit', text: '套用', primary: true }
+                  ],
+                  initialData: {
+                    borderColor: '#000000',
+                    bgColor: '',
+                    textColor: ''
+                  },
+                  onSubmit: (api) => {
+                    const data = api.getData()
+                    const borderColor = data.borderColor || '#000'
+                    const bgColor = data.bgColor
+                    const textColor = data.textColor
+                    
+                    let style = `border: 1px solid ${borderColor};`
+                    if (bgColor) style += ` background-color: ${bgColor};`
+                    if (textColor) style += ` color: ${textColor};`
+                    
+                    const html = `<span style="font-size: inherit;">&#8203;</span><span style="${style}">&nbsp;${editor.selection.getContent()}&nbsp;</span><span style="font-size: inherit;">&#8203;</span>`
                     editor.selection.setContent(html)
-                    const range = editor.selection.getRng()
-                    range.collapse(false)
-                    editor.selection.setRng(range)
-                    api.setActive(true)
-                  } else {
-                    editor.notificationManager.open({
-                      text: '請先選取文字',
-                      type: 'warning',
-                      timeout: 2000
-                    })
+                    editor.selection.collapse(false)
+                    api.close()
                   }
-                }
-              },
-              onSetup: (api) => {
-                const nodeChangeHandler = () => {
-                  const node = editor.selection.getNode()
-                  api.setActive(node.style && node.style.border ? true : false)
-                }
-                editor.on('NodeChange', nodeChangeHandler)
-                return () => editor.off('NodeChange', nodeChangeHandler)
+                })
               }
             })
             
@@ -558,8 +583,7 @@ export default {
                     const data = api.getData()
                     const iconHtml = data.iconhtml.trim()
                     if (iconHtml) {
-                      editor.insertContent(iconHtml)
-                      editor.selection.collapse(false)
+                      editor.insertContent(`${iconHtml}&nbsp;`)
                     }
                     api.close()
                   }
