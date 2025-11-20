@@ -197,7 +197,7 @@ export default {
         zhuyinHTML = zhuyinBase.split('').map(char => `<span class="zhuyin-char">${char}</span>`).join('')
       }
       
-      return `<span class="char-with-zhuyin" contenteditable="false">${char}<span class="vertical-zhuyin">${zhuyinHTML}</span></span>`
+      return `<span class="char-with-zhuyin">${char}<span class="vertical-zhuyin">${zhuyinHTML}</span></span>${String.fromCharCode(8203)}`
     },
     async initEditor() {
       try {
@@ -297,8 +297,8 @@ export default {
               border-color: #2196f3;
               border-radius: 3px;
             }
-            .char-with-zhuyin { display: inline-flex; align-items: center; margin-right: 0.2rem; flex-shrink: 0; user-select: all; }
-            .vertical-zhuyin { display: flex; flex-direction: column; justify-content: center; margin-left: 1px; max-height: 1em; overflow: visible; position: relative; flex-shrink: 0; }
+            .char-with-zhuyin { display: inline-flex; align-items: center; margin-right: 0.2rem; flex-shrink: 0; }
+            .vertical-zhuyin { display: flex; flex-direction: column; justify-content: center; margin-left: 1px; max-height: 1em; overflow: visible; position: relative; flex-shrink: 0; pointer-events: none; user-select: none; }
             .zhuyin-char { font-size: 0.28em; color: #333; line-height: 0.9; }
             .zhuyin-with-tone { display: flex; flex-direction: column; position: relative; }
             .tone-mark { position: absolute; right: -0.3em; top: 50%; transform: translateY(-50%); font-size: 0.28em; }
@@ -573,7 +573,7 @@ export default {
               this.$emit('input', content)
             })
             
-            // 處理方向鍵跳過注音和零寬空格
+            // 方向鍵自動跳過注音節點和零寬空格
             editor.on('keydown', (e) => {
               if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
               
@@ -582,20 +582,41 @@ export default {
                 const range = selection.getRng()
                 let node = range.startContainer
                 
-                // 檢查是否在零寬空格上
-                if (node.nodeType === 3 && node.textContent === String.fromCharCode(8203)) {
+                // 向上查找是否在注音元素內
+                let current = node.nodeType === 1 ? node : node.parentElement
+                let charWithZhuyin = null
+                
+                while (current && current !== editor.getBody()) {
+                  if (current.classList && current.classList.contains('vertical-zhuyin')) {
+                    // 找到注音元素，繼續向上找 char-with-zhuyin
+                    let parent = current.parentElement
+                    while (parent && parent !== editor.getBody()) {
+                      if (parent.classList && parent.classList.contains('char-with-zhuyin')) {
+                        charWithZhuyin = parent
+                        break
+                      }
+                      parent = parent.parentElement
+                    }
+                    break
+                  }
+                  current = current.parentElement
+                }
+                
+                if (charWithZhuyin) {
                   const newRange = editor.dom.createRng()
                   if (e.key === 'ArrowRight') {
-                    if (node.nextSibling) {
-                      newRange.setStartBefore(node.nextSibling)
-                    } else {
-                      newRange.setStartAfter(node)
+                    newRange.setStartAfter(charWithZhuyin)
+                    // 跳過緊接的零寬空格
+                    const nextNode = charWithZhuyin.nextSibling
+                    if (nextNode && nextNode.nodeType === 3 && nextNode.textContent[0] === '\u200B') {
+                      newRange.setStart(nextNode, 1)
                     }
                   } else {
-                    if (node.previousSibling) {
-                      newRange.setStartAfter(node.previousSibling)
-                    } else {
-                      newRange.setStartBefore(node)
+                    newRange.setStartBefore(charWithZhuyin)
+                    // 跳過前面的零寬空格
+                    const prevNode = charWithZhuyin.previousSibling
+                    if (prevNode && prevNode.nodeType === 3 && prevNode.textContent[prevNode.textContent.length - 1] === '\u200B') {
+                      newRange.setStart(prevNode, prevNode.textContent.length - 1)
                     }
                   }
                   newRange.collapse(true)
@@ -603,40 +624,52 @@ export default {
                   return
                 }
                 
-                // 檢查是否在注音元素內
-                let zhuyinSpan = node.nodeType === 1 ? node : node.parentElement
-                if (zhuyinSpan) {
-                  zhuyinSpan = zhuyinSpan.closest('.char-with-zhuyin')
-                }
-                
-                if (zhuyinSpan) {
-                  const newRange = editor.dom.createRng()
-                  if (e.key === 'ArrowRight') {
-                    newRange.setStartAfter(zhuyinSpan)
-                    // 跳過零寬空格
-                    if (zhuyinSpan.nextSibling && zhuyinSpan.nextSibling.nodeType === 3 && zhuyinSpan.nextSibling.textContent === String.fromCharCode(8203)) {
-                      if (zhuyinSpan.nextSibling.nextSibling) {
-                        newRange.setStartBefore(zhuyinSpan.nextSibling.nextSibling)
-                      } else {
-                        newRange.setStartAfter(zhuyinSpan.nextSibling)
-                      }
-                    }
-                  } else {
-                    newRange.setStartBefore(zhuyinSpan)
-                    // 跳過零寬空格
-                    if (zhuyinSpan.previousSibling && zhuyinSpan.previousSibling.nodeType === 3 && zhuyinSpan.previousSibling.textContent === String.fromCharCode(8203)) {
-                      if (zhuyinSpan.previousSibling.previousSibling) {
-                        newRange.setStartAfter(zhuyinSpan.previousSibling.previousSibling)
-                      } else {
-                        newRange.setStartBefore(zhuyinSpan.previousSibling)
-                      }
-                    }
+                // 跳過零寬空格
+                const currentRange = selection.getRng()
+                const currentNode = currentRange.startContainer
+                if (currentNode.nodeType === 3) {
+                  const text = currentNode.textContent
+                  const offset = currentRange.startOffset
+                  
+                  if (e.key === 'ArrowRight' && offset < text.length && text[offset] === '\u200B') {
+                    currentRange.setStart(currentNode, offset + 1)
+                    currentRange.collapse(true)
+                    selection.setRng(currentRange)
+                  } else if (e.key === 'ArrowLeft' && offset > 0 && text[offset - 1] === '\u200B') {
+                    currentRange.setStart(currentNode, offset - 1)
+                    currentRange.collapse(true)
+                    selection.setRng(currentRange)
                   }
-                  newRange.collapse(true)
-                  selection.setRng(newRange)
                 }
               }, 0)
             })
+            
+            // 防止編輯注音內容
+            editor.on('keydown', (e) => {
+              const selection = editor.selection
+              const node = selection.getNode()
+              
+              // 檢查是否在注音元素內
+              const zhuyinElement = node.closest ? node.closest('.vertical-zhuyin') : null
+              
+              if (zhuyinElement) {
+                // 允許方向鍵、刪除鍵和選取操作
+                if (e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End' || 
+                    e.key === 'Shift' || e.key === 'Control' || e.key === 'Meta' ||
+                    e.key === 'Backspace' || e.key === 'Delete') {
+                  return
+                }
+                
+                // 阻止其他按鍵（防止編輯）
+                if (!e.ctrlKey && !e.metaKey) {
+                  e.preventDefault()
+                }
+              }
+            })
+            
+
+            
+
           },
           init_instance_callback: (editor) => {
             this.editor = editor
