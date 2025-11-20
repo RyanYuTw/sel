@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2>手冊列表</h2>
+    <h2>學習手冊列表</h2>
     <div class="toolbar">
       <select v-model="filterYear" @change="filterHandbooks" class="filter-select">
         <option value="">全部年度</option>
@@ -15,7 +15,15 @@
         <option value="上">上學期</option>
         <option value="下">下學期</option>
       </select>
-      <input v-model="filterLesson" @input="filterHandbooks" type="text" placeholder="課別..." class="filter-input">
+      <select v-model="filterLesson" @change="filterHandbooks" class="filter-select">
+        <option value="">全部課別</option>
+        <option v-for="lesson in lessons" :key="lesson" :value="lesson">{{ lesson }}</option>
+      </select>
+      <select v-model="filterStatus" @change="filterHandbooks" class="filter-select">
+        <option value="">全部狀態</option>
+        <option value="1">已發布</option>
+        <option value="0">未發布</option>
+      </select>
       <button @click="$router.push('/edit')" class="btn-add">新增手冊</button>
     </div>
     <table class="handbook-table">
@@ -62,12 +70,16 @@ export default {
       filterYear: '',
       filterGrade: '',
       filterSemester: '',
-      filterLesson: ''
+      filterLesson: '',
+      filterStatus: ''
     }
   },
   computed: {
     years() {
       return [...new Set(this.handbooks.map(h => h.year))].sort((a, b) => b - a)
+    },
+    lessons() {
+      return [...new Set(this.handbooks.map(h => h.lesson))].sort()
     }
   },
   async mounted() {
@@ -84,7 +96,8 @@ export default {
         if (this.filterYear && h.year !== parseInt(this.filterYear)) return false
         if (this.filterGrade && h.grade !== parseInt(this.filterGrade)) return false
         if (this.filterSemester && h.semester !== this.filterSemester) return false
-        if (this.filterLesson && !h.lesson.toString().includes(this.filterLesson)) return false
+        if (this.filterLesson && h.lesson !== this.filterLesson) return false
+        if (this.filterStatus !== '' && h.status !== parseInt(this.filterStatus)) return false
         return true
       })
     },
@@ -106,9 +119,20 @@ export default {
       window.open(`/preview/${handbook.id}`, '_blank')
     },
     async deleteHandbook(id) {
-      if (confirm('確定要刪除此手冊嗎？')) {
+      const result = await Swal.fire({
+        title: '確定要刪除嗎？',
+        text: '此操作無法復原！',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ff7043',
+        cancelButtonColor: '#9e9e9e',
+        confirmButtonText: '確定刪除',
+        cancelButtonText: '取消'
+      })
+      if (result.isConfirmed) {
         await fetch(`/api/handbooks/${id}`, { method: 'DELETE' })
         await this.loadHandbooks()
+        Swal.fire({ icon: 'success', title: '已刪除', timer: 1500, showConfirmButton: false })
       }
     }
   }

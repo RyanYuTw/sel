@@ -10,7 +10,7 @@
     <div class="main-container">
       <nav class="sidebar">
         <ul>
-          <li><router-link to="/">手冊列表</router-link></li>
+          <li><router-link to="/">學習手冊</router-link></li>
           <li><router-link to="/edit">新增手冊</router-link></li>
         </ul>
       </nav>

@@ -645,45 +645,56 @@ export default {
             }
             
             // 監聽輸入法結束
+            let compositionData = ''
+            editor.getBody().addEventListener('compositionstart', () => {
+              compositionData = ''
+            })
+            
+            editor.getBody().addEventListener('compositionupdate', (e) => {
+              compositionData = e.data
+            })
+            
             editor.getBody().addEventListener('compositionend', async (e) => {
               if (!this.zhuyinMode) return
-              const data = e.data
+              const data = e.data || compositionData
               if (data && /[\u4e00-\u9fff]/.test(data)) {
                 const char = data
                 
-                // 獲取當前節點和範圍
-                const node = editor.selection.getNode()
-                const range = editor.selection.getRng()
-                
-                // 檢查是否在文字節點中
-                const textNode = node.nodeType === 3 ? node : node.firstChild
-                if (!textNode || textNode.nodeType !== 3) {
-                  return
-                }
-                
-                // 向前刪除一個字元
-                if (range.startOffset > 0) {
-                  range.setStart(textNode, range.startOffset - 1)
-                  range.deleteContents()
-                }
-                
-                // 獲取注音
-                const zhuyinList = await this.getZhuyin(char)
-                if (zhuyinList && zhuyinList.length > 0) {
-                  const cleanedList = zhuyinList.map(z => z.replace(/[（(]又音[）)]/g, '').replace(/[（(]語音[）)]/g, '').replace(/[（(]讀音[）)]/g, ''))
-                  const uniqueList = [...new Set(cleanedList)]
-                  if (uniqueList.length > 1) {
-                    this.showZhuyinDialog(editor, char, uniqueList)
+                // 使用 setTimeout 確保字已經插入
+                setTimeout(async () => {
+                  // 獲取當前內容並找到最後插入的字
+                  const bookmark = editor.selection.getBookmark()
+                  const range = editor.selection.getRng()
+                  const node = range.startContainer
+                  
+                  // 如果在文字節點中，向前刪除一個字元
+                  if (node.nodeType === 3 && node.textContent) {
+                    const offset = range.startOffset
+                    if (offset > 0 && node.textContent[offset - 1] === char) {
+                      range.setStart(node, offset - 1)
+                      range.setEnd(node, offset)
+                      range.deleteContents()
+                    }
+                  }
+                  
+                  // 獲取注音
+                  const zhuyinList = await this.getZhuyin(char)
+                  if (zhuyinList && zhuyinList.length > 0) {
+                    const cleanedList = zhuyinList.map(z => z.replace(/[（(]又音[）)]/g, '').replace(/[（(]語音[）)]/g, '').replace(/[（(]讀音[）)]/g, ''))
+                    const uniqueList = [...new Set(cleanedList)]
+                    if (uniqueList.length > 1) {
+                      this.showZhuyinDialog(editor, char, uniqueList)
+                    } else {
+                      const zhuyin = uniqueList[0]
+                      const html = this.formatZhuyinHTML(char, zhuyin)
+                      editor.insertContent(html)
+                      editor.selection.collapse(false)
+                    }
                   } else {
-                    const zhuyin = uniqueList[0]
-                    const html = this.formatZhuyinHTML(char, zhuyin)
-                    editor.insertContent(html)
+                    editor.insertContent(char)
                     editor.selection.collapse(false)
                   }
-                } else {
-                  editor.insertContent(char)
-                  editor.selection.collapse(false)
-                }
+                }, 0)
               }
             })
 
