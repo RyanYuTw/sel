@@ -99,6 +99,36 @@
             font-size: 0.7em; 
             color: #000; 
         }
+        .image-input-wrapper {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+        }
+        .image-input-wrapper img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+        .draggable-input {
+            position: absolute;
+            background: #fff;
+            border: 2px solid #2196f3;
+            padding: 4px 8px;
+            z-index: 10;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            cursor: text;
+            min-width: 30px;
+            outline: none;
+        }
+        .draggable-input:focus {
+            border-color: #1565c0;
+            background: #e3f2fd;
+        }
+        .draggable-input:empty:before {
+            content: attr(data-placeholder);
+            color: #999;
+        }
     </style>
 </head>
 <body>
@@ -129,6 +159,25 @@
                 }
                 field.parentNode.replaceChild(input, field);
             });
+            
+            // 處理圖片上的輸入欄
+            const draggableInputs = document.querySelectorAll('.draggable-input');
+            draggableInputs.forEach(inputDiv => {
+                const leftPercent = inputDiv.getAttribute('data-left-percent');
+                const topPercent = inputDiv.getAttribute('data-top-percent');
+                if (leftPercent) inputDiv.style.left = leftPercent + '%';
+                if (topPercent) inputDiv.style.top = topPercent + '%';
+                
+                const label = inputDiv.textContent.trim();
+                inputDiv.setAttribute('data-placeholder', label);
+                inputDiv.textContent = '';
+                inputDiv.contentEditable = 'true';
+                
+                inputDiv.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    this.focus();
+                });
+            });}
         });
     </script>
 </body>

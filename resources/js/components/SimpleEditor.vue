@@ -37,6 +37,80 @@ export default {
     }
   },
   methods: {
+    addDraggableInputToImage(editor, img, label, width) {
+      let wrapper = img.parentElement
+      if (!wrapper || !wrapper.classList.contains('image-input-wrapper')) {
+        const id = 'img-' + Date.now()
+        wrapper = editor.dom.create('div', {
+          class: 'image-input-wrapper',
+          'data-image-id': id,
+          style: 'position: relative; display: inline-block; max-width: 100%;'
+        })
+        img.parentNode.insertBefore(wrapper, img)
+        wrapper.appendChild(img)
+        editor.dom.setAttrib(img, 'data-image-id', id)
+      }
+      
+      const inputId = 'input-' + Date.now()
+      const input = editor.dom.create('div', {
+        class: 'draggable-input',
+        'data-input-id': inputId,
+        'data-left-percent': '10',
+        'data-top-percent': '10',
+        style: `position: absolute; left: 10%; top: 10%; width: ${width}px; background: #fff; border: 2px solid #2196f3; padding: 4px 8px; cursor: move; z-index: 10; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`
+      }, label)
+      
+      wrapper.appendChild(input)
+      this.makeDraggable(editor, input, wrapper)
+      editor.fire('change')
+    },
+    
+    makeDraggable(editor, element, container) {
+      const editorBody = editor.getBody()
+      let isDragging = false
+      let startX, startY, startLeft, startTop
+      
+      const onMouseDown = (e) => {
+        if (e.target !== element) return
+        isDragging = true
+        startX = e.clientX
+        startY = e.clientY
+        const rect = element.getBoundingClientRect()
+        const containerRect = container.getBoundingClientRect()
+        startLeft = rect.left - containerRect.left
+        startTop = rect.top - containerRect.top
+        e.preventDefault()
+        e.stopPropagation()
+      }
+      
+      const onMouseMove = (e) => {
+        if (!isDragging) return
+        e.preventDefault()
+        const deltaX = e.clientX - startX
+        const deltaY = e.clientY - startY
+        const containerRect = container.getBoundingClientRect()
+        const newLeft = Math.max(0, Math.min(containerRect.width - element.offsetWidth, startLeft + deltaX))
+        const newTop = Math.max(0, Math.min(containerRect.height - element.offsetHeight, startTop + deltaY))
+        const leftPercent = (newLeft / containerRect.width * 100).toFixed(2)
+        const topPercent = (newTop / containerRect.height * 100).toFixed(2)
+        element.style.left = leftPercent + '%'
+        element.style.top = topPercent + '%'
+        element.setAttribute('data-left-percent', leftPercent)
+        element.setAttribute('data-top-percent', topPercent)
+      }
+      
+      const onMouseUp = () => {
+        if (isDragging) {
+          isDragging = false
+          editor.fire('change')
+        }
+      }
+      
+      editorBody.addEventListener('mousedown', onMouseDown, true)
+      editorBody.addEventListener('mousemove', onMouseMove, true)
+      editorBody.addEventListener('mouseup', onMouseUp, true)
+    },
+    
     async getZhuyin(word) {
       try {
         const response = await fetch(`/api/zhuyin?word=${encodeURIComponent(word)}`)
@@ -243,7 +317,9 @@ export default {
           plugins: 'lists link image table media code fullscreen searchreplace wordcount visualblocks charmap anchor preview',
           toolbar: 'undo redo | formatselect fontsize fontsizeinput | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link anchor image table media | hr charmap fontawesome zhuyin inputfield textborder cleartableborder | removeformat | searchreplace visualblocks fullscreen preview code',
           fontsize_formats: '8pt 10pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt 72pt',
-          extended_valid_elements: 'i[class|style]',
+          extended_valid_elements: 'i[class|style],div[*],span[*]',
+          valid_children: '+body[style],+div[div|span|img],+span[span]',
+          custom_elements: 'image-input-wrapper,draggable-input',
           image_title: true,
           automatic_uploads: true,
           file_picker_types: 'image',
@@ -304,6 +380,9 @@ export default {
             .tone-mark { position: absolute; right: -0.3em; top: 50%; transform: translateY(-50%); font-size: 0.28em; }
             .zhuyin-with-light { position: relative; display: inline-block; }
             .light-tone { position: absolute; top: -0.6em; left: 0; right: 0; text-align: center; font-size: 0.7em; color: #000; }
+            .image-input-wrapper { position: relative; display: inline-block; max-width: 100%; }
+            .image-input-wrapper img { display: block; max-width: 100%; height: auto; }
+            .draggable-input { position: absolute; background: #fff; border: 2px solid #2196f3; padding: 4px 8px; cursor: move; z-index: 10; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); user-select: none; }
             p { word-wrap: break-word; overflow-wrap: break-word; }
           `,
           skin_url: '/skins/ui/oxide',
@@ -449,8 +528,11 @@ export default {
             editor.ui.registry.addButton('inputfield', {
               text: '輸入欄',
               onAction: () => {
+                const selectedNode = editor.selection.getNode()
+                const isImage = selectedNode.tagName === 'IMG'
+                
                 editor.windowManager.open({
-                  title: '插入輸入欄位',
+                  title: isImage ? '在圖片上添加輸入欄' : '插入輸入欄位',
                   body: {
                     type: 'panel',
                     items: [
@@ -461,20 +543,10 @@ export default {
                         placeholder: '例如: 姓名、日期、班級'
                       },
                       {
-                        type: 'selectbox',
-                        name: 'type',
-                        label: '欄位類型',
-                        items: [
-                          { text: '單行文字', value: 'text' },
-                          { text: '多行文字', value: 'textarea' },
-                          { text: '日期', value: 'date' }
-                        ]
-                      },
-                      {
                         type: 'input',
                         name: 'width',
                         label: '寬度 (px)',
-                        placeholder: '例如: 200 (留空則自動)'
+                        placeholder: '預設: 30'
                       }
                     ]
                   },
@@ -485,9 +557,13 @@ export default {
                   onSubmit: (api) => {
                     const data = api.getData()
                     const label = data.label.trim() || '輸入'
-                    const type = data.type || 'text'
-                    const width = data.width.trim()
-                    editor.insertContent(`<span class="input-field" data-label="${label}" data-type="${type}" data-width="${width}" contenteditable="false" style="display: inline-block; background: #e3f2fd; border: 2px dashed #2196f3; padding: 4px 12px; margin: 0 4px; border-radius: 4px; color: #1976d2; font-weight: 500; min-width: 80px; white-space: nowrap;">[${label}]</span>&nbsp;`)
+                    const width = data.width.trim() || '30'
+                    
+                    if (isImage) {
+                      this.addDraggableInputToImage(editor, selectedNode, label, width)
+                    } else {
+                      editor.insertContent(`<span class="input-field" data-label="${label}" data-width="${width}" contenteditable="false" style="display: inline-block; background: #e3f2fd; border: 2px dashed #2196f3; padding: 4px 12px; margin: 0 4px; border-radius: 4px; color: #1976d2; font-weight: 500; min-width: 80px; white-space: nowrap;">[${label}]</span>&nbsp;`)
+                    }
                     api.close()
                   }
                 })
@@ -700,6 +776,21 @@ export default {
             if (this.value) {
               editor.setContent(this.value)
             }
+            
+            // 重新綁定拖曳功能並恢復位置
+            setTimeout(() => {
+              const wrappers = editor.getBody().querySelectorAll('.image-input-wrapper')
+              wrappers.forEach(wrapper => {
+                const inputs = wrapper.querySelectorAll('.draggable-input')
+                inputs.forEach(input => {
+                  const leftPercent = input.getAttribute('data-left-percent')
+                  const topPercent = input.getAttribute('data-top-percent')
+                  if (leftPercent) input.style.left = leftPercent + '%'
+                  if (topPercent) input.style.top = topPercent + '%'
+                  this.makeDraggable(editor, input, wrapper)
+                })
+              })
+            }, 100)
             
             // 監聽輸入法結束
             let compositionData = ''
