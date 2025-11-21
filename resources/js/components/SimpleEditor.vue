@@ -338,7 +338,7 @@ export default {
           statusbar: false,
           menubar: 'edit insert view format table tools',
           plugins: 'lists link image table media code fullscreen searchreplace wordcount visualblocks charmap anchor preview',
-          toolbar: 'undo redo | formatselect fontsize fontsizeinput | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link anchor image table media | hr charmap fontawesome zhuyin inputfield textborder cleartableborder | removeformat | searchreplace visualblocks fullscreen preview code',
+          toolbar: 'undo redo | formatselect fontsize fontsizeinput | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link anchor image table media | hr charmap fontawesome zhuyin inputfield textborder cleartableborder draw | removeformat | searchreplace visualblocks fullscreen preview code',
           fontsize_formats: '8pt 10pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt 72pt',
           extended_valid_elements: 'i[class|style],div[*],span[*]',
           valid_children: '+body[style],+div[div|span|img],+span[span]',
@@ -545,6 +545,22 @@ export default {
               onSetup: (api) => {
                 api.setActive(this.zhuyinMode)
                 return () => {}
+              }
+            })
+            
+            // 添加塗鴉按鈕
+            editor.ui.registry.addButton('draw', {
+              text: '塗鴉',
+              onAction: () => {
+                const drawWindow = window.open('/draw', '塗鴉')
+                if (drawWindow) drawWindow.moveTo(0, 0)
+                if (drawWindow) drawWindow.resizeTo(screen.availWidth, screen.availHeight)
+                
+                window.addEventListener('message', (event) => {
+                  if (event.data.type === 'insertDrawing') {
+                    editor.insertContent(`<img src="${event.data.data}" alt="塗鴉" style="max-width: 100%; height: auto;" />`)
+                  }
+                }, { once: true })
               }
             })
             
