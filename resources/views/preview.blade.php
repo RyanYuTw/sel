@@ -109,25 +109,23 @@
             max-width: 100%;
             height: auto;
         }
-        .draggable-input {
+        .draggable-input-wrapper {
             position: absolute;
-            background: #fff;
-            border: 2px solid #2196f3;
-            padding: 4px 8px;
             z-index: 10;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .draggable-input-wrapper input {
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid #000;
+            padding: 2px 4px;
             cursor: text;
             min-width: 30px;
             outline: none;
+            font-size: inherit;
+            font-family: inherit;
         }
-        .draggable-input:focus {
-            border-color: #1565c0;
-            background: #e3f2fd;
-        }
-        .draggable-input:empty:before {
-            content: attr(data-placeholder);
-            color: #999;
+        .draggable-input-wrapper input:focus {
+            border-bottom: 2px solid #000;
         }
     </style>
 </head>
@@ -165,19 +163,22 @@
             draggableInputs.forEach(inputDiv => {
                 const leftPercent = inputDiv.getAttribute('data-left-percent');
                 const topPercent = inputDiv.getAttribute('data-top-percent');
-                if (leftPercent) inputDiv.style.left = leftPercent + '%';
-                if (topPercent) inputDiv.style.top = topPercent + '%';
+                const label = inputDiv.getAttribute('data-label') || inputDiv.textContent.trim();
+                const width = inputDiv.style.width;
                 
-                const label = inputDiv.textContent.trim();
-                inputDiv.setAttribute('data-placeholder', label);
-                inputDiv.textContent = '';
-                inputDiv.contentEditable = 'true';
+                const wrapper = document.createElement('span');
+                wrapper.className = 'draggable-input-wrapper';
+                wrapper.style.left = leftPercent + '%';
+                wrapper.style.top = topPercent + '%';
                 
-                inputDiv.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    this.focus();
-                });
-            });}
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = label;
+                input.style.width = width;
+                
+                wrapper.appendChild(input);
+                inputDiv.parentNode.replaceChild(wrapper, inputDiv);
+            });
         });
     </script>
 </body>

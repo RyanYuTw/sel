@@ -57,7 +57,9 @@ export default {
         'data-input-id': inputId,
         'data-left-percent': '10',
         'data-top-percent': '10',
-        style: `position: absolute; left: 10%; top: 10%; width: ${width}px; background: #fff; border: 2px solid #2196f3; padding: 4px 8px; cursor: move; z-index: 10; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`
+        'data-label': label,
+        contenteditable: 'false',
+        style: `position: absolute; left: 10%; top: 10%; width: ${width}px; background: transparent; border: none; border-bottom: 1px solid #000; padding: 2px 4px; cursor: move; z-index: 10; writing-mode: horizontal-tb;`
       }, label)
       
       wrapper.appendChild(input)
@@ -68,11 +70,13 @@ export default {
     makeDraggable(editor, element, container) {
       const editorBody = editor.getBody()
       let isDragging = false
+      let hasMoved = false
       let startX, startY, startLeft, startTop
       
       const onMouseDown = (e) => {
         if (e.target !== element) return
         isDragging = true
+        hasMoved = false
         startX = e.clientX
         startY = e.clientY
         const rect = element.getBoundingClientRect()
@@ -85,9 +89,13 @@ export default {
       
       const onMouseMove = (e) => {
         if (!isDragging) return
-        e.preventDefault()
         const deltaX = e.clientX - startX
         const deltaY = e.clientY - startY
+        if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+          hasMoved = true
+        }
+        if (!hasMoved) return
+        e.preventDefault()
         const containerRect = container.getBoundingClientRect()
         const newLeft = Math.max(0, Math.min(containerRect.width - element.offsetWidth, startLeft + deltaX))
         const newTop = Math.max(0, Math.min(containerRect.height - element.offsetHeight, startTop + deltaY))
@@ -101,10 +109,25 @@ export default {
       
       const onMouseUp = () => {
         if (isDragging) {
+          if (!hasMoved) {
+            element.contentEditable = 'true'
+            element.focus()
+            const range = document.createRange()
+            range.selectNodeContents(element)
+            const sel = window.getSelection()
+            sel.removeAllRanges()
+            sel.addRange(range)
+          }
           isDragging = false
-          editor.fire('change')
+          if (hasMoved) {
+            editor.fire('change')
+          }
         }
       }
+      
+      element.addEventListener('blur', () => {
+        element.contentEditable = 'false'
+      })
       
       editorBody.addEventListener('mousedown', onMouseDown, true)
       editorBody.addEventListener('mousemove', onMouseMove, true)
@@ -382,7 +405,8 @@ export default {
             .light-tone { position: absolute; top: -0.6em; left: 0; right: 0; text-align: center; font-size: 0.7em; color: #000; }
             .image-input-wrapper { position: relative; display: inline-block; max-width: 100%; }
             .image-input-wrapper img { display: block; max-width: 100%; height: auto; }
-            .draggable-input { position: absolute; background: #fff; border: 2px solid #2196f3; padding: 4px 8px; cursor: move; z-index: 10; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); user-select: none; }
+            .draggable-input { position: absolute; background: transparent; border: none; border-bottom: 1px solid #000; padding: 2px 4px; cursor: move; z-index: 10; user-select: none; min-width: 30px; writing-mode: horizontal-tb; text-orientation: mixed; }
+            .draggable-input[contenteditable="true"] { cursor: text; border-bottom: 2px solid #000; }
             p { word-wrap: break-word; overflow-wrap: break-word; }
           `,
           skin_url: '/skins/ui/oxide',
