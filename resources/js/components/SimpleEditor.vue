@@ -338,7 +338,8 @@ export default {
           statusbar: false,
           menubar: 'edit insert view format table tools',
           plugins: 'lists link image table media code fullscreen searchreplace wordcount visualblocks charmap anchor preview',
-          toolbar: 'undo redo | formatselect fontsize fontsizeinput | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link anchor image table media | hr charmap fontawesome zhuyin inputfield textborder cleartableborder draw shapes button | removeformat | searchreplace visualblocks fullscreen preview code',
+          toolbar_mode: 'wrap',
+          toolbar: 'undo redo | formatselect fontsize fontsizeinput | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link anchor image table media | hr charmap fontawesome zhuyin inputfield textborder cleartableborder draw shapes button | removeformat | searchreplace visualblocks fullscreen code',
           fontsize_formats: '8pt 10pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt 72pt',
           extended_valid_elements: 'i[class|style],div[*],span[*],svg[*],circle[*],rect[*],polygon[*],path[*]',
           valid_children: '+body[style],+div[div|span|img],+span[span]',
@@ -536,11 +537,6 @@ export default {
               onAction: (api) => {
                 this.zhuyinMode = !this.zhuyinMode
                 api.setActive(this.zhuyinMode)
-                editor.notificationManager.open({
-                  text: this.zhuyinMode ? '注音模式：已啟用' : '注音模式：已關閉',
-                  type: 'info',
-                  timeout: 2000
-                })
               },
               onSetup: (api) => {
                 api.setActive(this.zhuyinMode)
@@ -1139,8 +1135,6 @@ export default {
                 
                 // 使用 setTimeout 確保字已經插入
                 setTimeout(async () => {
-                  // 獲取當前內容並找到最後插入的字
-                  const bookmark = editor.selection.getBookmark()
                   const range = editor.selection.getRng()
                   const node = range.startContainer
                   
@@ -1148,9 +1142,11 @@ export default {
                   if (node.nodeType === 3 && node.textContent) {
                     const offset = range.startOffset
                     if (offset > 0 && node.textContent[offset - 1] === char) {
-                      range.setStart(node, offset - 1)
-                      range.setEnd(node, offset)
-                      range.deleteContents()
+                      const newRange = editor.dom.createRng()
+                      newRange.setStart(node, offset - 1)
+                      newRange.setEnd(node, offset)
+                      newRange.deleteContents()
+                      editor.selection.setRng(newRange)
                     }
                   }
                   
@@ -1165,13 +1161,11 @@ export default {
                       const zhuyin = uniqueList[0]
                       const html = this.formatZhuyinHTML(char, zhuyin)
                       editor.insertContent(html)
-                      editor.selection.collapse(false)
                     }
                   } else {
                     editor.insertContent(char)
-                    editor.selection.collapse(false)
                   }
-                }, 0)
+                }, 10)
               }
             })
 
