@@ -338,7 +338,7 @@ export default {
           statusbar: false,
           menubar: 'edit insert view format table tools',
           plugins: 'lists link image table media code fullscreen searchreplace wordcount visualblocks charmap anchor preview',
-          toolbar: 'undo redo | formatselect fontsize fontsizeinput | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link anchor image table media | hr charmap fontawesome zhuyin inputfield textborder cleartableborder draw shapes | removeformat | searchreplace visualblocks fullscreen preview code',
+          toolbar: 'undo redo | formatselect fontsize fontsizeinput | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link anchor image table media | hr charmap fontawesome zhuyin inputfield textborder cleartableborder draw shapes button | removeformat | searchreplace visualblocks fullscreen preview code',
           fontsize_formats: '8pt 10pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt 72pt',
           extended_valid_elements: 'i[class|style],div[*],span[*],svg[*],circle[*],rect[*],polygon[*],path[*]',
           valid_children: '+body[style],+div[div|span|img],+span[span]',
@@ -548,6 +548,121 @@ export default {
               }
             })
             
+            // 添加按鈕插入功能
+            const openButtonDialog = (existingButton = null) => {
+              let initialData = {
+                text: '點擊這裡',
+                link: '',
+                bgColor: '#8bc34a',
+                textColor: '#ffffff',
+                size: 'medium'
+              }
+              
+              if (existingButton) {
+                initialData.text = existingButton.textContent
+                initialData.link = existingButton.getAttribute('data-link') || ''
+                initialData.bgColor = existingButton.style.background || '#8bc34a'
+                initialData.textColor = existingButton.style.color || '#ffffff'
+                const padding = existingButton.style.padding
+                if (padding.includes('6px')) initialData.size = 'small'
+                else if (padding.includes('14px')) initialData.size = 'large'
+                else initialData.size = 'medium'
+              }
+              
+              editor.windowManager.open({
+                title: existingButton ? '編輯按鈕' : '插入按鈕',
+                body: {
+                  type: 'panel',
+                  items: [
+                    {
+                      type: 'input',
+                      name: 'text',
+                      label: '按鈕文字',
+                      placeholder: '點擊這裡'
+                    },
+                    {
+                      type: 'input',
+                      name: 'link',
+                      label: '連結 (可選)',
+                      placeholder: 'https://'
+                    },
+                    {
+                      type: 'colorinput',
+                      name: 'bgColor',
+                      label: '背景顏色'
+                    },
+                    {
+                      type: 'colorinput',
+                      name: 'textColor',
+                      label: '文字顏色'
+                    },
+                    {
+                      type: 'selectbox',
+                      name: 'size',
+                      label: '大小',
+                      items: [
+                        { text: '小', value: 'small' },
+                        { text: '中', value: 'medium' },
+                        { text: '大', value: 'large' }
+                      ]
+                    }
+                  ]
+                },
+                buttons: [
+                  { type: 'cancel', text: '取消' },
+                  ...(existingButton ? [{ type: 'custom', text: '刪除', name: 'delete' }] : []),
+                  { type: 'submit', text: existingButton ? '更新' : '插入', primary: true }
+                ],
+                initialData: initialData,
+                onAction: (api, details) => {
+                  if (details.name === 'delete') {
+                    existingButton.remove()
+                    api.close()
+                  }
+                },
+                onSubmit: (api) => {
+                  const data = api.getData()
+                  const text = data.text || '按鈕'
+                  const link = data.link || '#'
+                  const bgColor = data.bgColor || '#8bc34a'
+                  const textColor = data.textColor || '#ffffff'
+                  const size = data.size || 'medium'
+                  
+                  let padding = '10px 20px'
+                  let fontSize = '14px'
+                  if (size === 'small') {
+                    padding = '6px 12px'
+                    fontSize = '12px'
+                  } else if (size === 'large') {
+                    padding = '14px 28px'
+                    fontSize = '16px'
+                  }
+                  
+                  const buttonHtml = `<span class="custom-button" data-link="${link}" contenteditable="false" style="display: inline-block; padding: ${padding}; background: ${bgColor}; color: ${textColor}; text-decoration: none; border-radius: 4px; font-size: ${fontSize}; font-weight: 500; cursor: pointer; user-select: all;">${text}</span>`
+                  
+                  if (existingButton) {
+                    existingButton.outerHTML = buttonHtml
+                  } else {
+                    editor.insertContent(buttonHtml + '&nbsp;')
+                  }
+                  api.close()
+                }
+              })
+            }
+            
+            editor.ui.registry.addButton('button', {
+              text: '按鈕',
+              onAction: () => openButtonDialog()
+            })
+            
+            editor.on('click', (e) => {
+              const target = e.target
+              if (target.classList && target.classList.contains('custom-button')) {
+                e.preventDefault()
+                openButtonDialog(target)
+              }
+            })
+            
             // 添加圖形按鈕
             editor.ui.registry.addButton('shapes', {
               text: '圖形',
@@ -631,10 +746,15 @@ export default {
                     const strokeWidth = parseInt(data.strokeWidth) || 0
                     const strokeStyle = data.strokeStyle || 'solid'
                     const rotate = parseInt(data.rotate) || 0
+                    const dashLength = Math.max(5, size * 0.05)
+                    const dashGap = Math.max(3, size * 0.03)
+                    const dotLength = Math.max(1, size * 0.01)
+                    const dotGap = Math.max(2, size * 0.02)
                     let dashArray = ''
-                    if (strokeStyle === 'dashed') dashArray = 'stroke-dasharray="5,3"'
-                    else if (strokeStyle === 'dotted') dashArray = 'stroke-dasharray="1,2"'
-                    const strokeAttr = strokeWidth > 0 ? `stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray}` : ''
+                    if (strokeStyle === 'dashed') dashArray = `stroke-dasharray="${dashLength},${dashGap}"`
+                    else if (strokeStyle === 'dotted') dashArray = `stroke-dasharray="${dotLength},${dotGap}"`
+                    const fixedStrokeWidth = Math.max(strokeWidth, 2)
+                    const strokeAttr = strokeWidth > 0 ? `stroke="${stroke}" stroke-width="${fixedStrokeWidth}" ${dashArray}` : ''
                     const rotateStyle = rotate !== 0 ? ` style="transform: rotate(${rotate}deg);"` : ''
                     let svg = ''
                     

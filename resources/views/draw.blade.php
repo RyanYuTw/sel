@@ -22,20 +22,28 @@
         <label>顏色: <input type="color" id="color" value="#000000"></label>
         <label>粗細: <input type="range" id="size" min="1" max="20" value="3" style="width: 150px;"> <span id="sizeValue">3</span>px</label>
         <button id="clear">清除</button>
-        <button id="save">儲存</button>
-        <button id="insert">插入</button>
+        <button id="save" style="display: none;">儲存</button>
+        <button id="insert" style="display: none;">插入</button>
     </div>
     <canvas id="canvas" width="750" height="750"></canvas>
     
     <script>
+        const isFromPreview = window.opener && window.opener.location.pathname.includes('/preview/');
+        const saveBtn = document.getElementById('save');
+        const insertBtn = document.getElementById('insert');
+        
+        if (isFromPreview) {
+            saveBtn.style.display = 'inline-block';
+        } else {
+            insertBtn.style.display = 'inline-block';
+        }
+        
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const colorInput = document.getElementById('color');
         const sizeInput = document.getElementById('size');
         const sizeValue = document.getElementById('sizeValue');
         const clearBtn = document.getElementById('clear');
-        const saveBtn = document.getElementById('save');
-        const insertBtn = document.getElementById('insert');
         
         let drawing = false;
         let currentColor = '#000000';
@@ -87,6 +95,12 @@
                 a.download = 'drawing_' + Date.now() + '.png';
                 a.click();
                 URL.revokeObjectURL(url);
+                
+                if (window.opener) {
+                    const dataUrl = canvas.toDataURL('image/png');
+                    window.opener.postMessage({ type: 'saveDrawing', data: dataUrl }, '*');
+                    setTimeout(() => window.close(), 500);
+                }
             });
         });
         

@@ -140,6 +140,41 @@
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // 處理按鈕點擊
+            const buttons = document.querySelectorAll('.custom-button');
+            buttons.forEach(button => {
+                button.style.cursor = 'pointer';
+                button.addEventListener('click', function() {
+                    const link = this.getAttribute('data-link');
+                    if (link && link !== '#') {
+                        if (link === '/draw') {
+                            const drawWindow = window.open(link, '塗鴉');
+                            if (drawWindow) {
+                                drawWindow.moveTo(0, 0);
+                                drawWindow.resizeTo(screen.availWidth, screen.availHeight);
+                            }
+                            
+                            window.addEventListener('message', (event) => {
+                                if (event.data.type === 'saveDrawing') {
+                                    const img = document.createElement('img');
+                                    img.src = event.data.data;
+                                    img.style.maxWidth = '100%';
+                                    img.style.height = 'auto';
+                                    img.style.display = 'block';
+                                    img.style.margin = '20px auto';
+                                    img.style.border = '2px dashed #000';
+                                    
+                                    this.parentNode.insertBefore(img, this.nextSibling);
+                                    this.style.display = 'none';
+                                }
+                            });
+                        } else {
+                            window.location.href = link;
+                        }
+                    }
+                });
+            });
+            
             const fields = document.querySelectorAll('.input-field');
             fields.forEach(field => {
                 const label = field.getAttribute('data-label') || '輸入';
