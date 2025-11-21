@@ -338,9 +338,9 @@ export default {
           statusbar: false,
           menubar: 'edit insert view format table tools',
           plugins: 'lists link image table media code fullscreen searchreplace wordcount visualblocks charmap anchor preview',
-          toolbar: 'undo redo | formatselect fontsize fontsizeinput | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link anchor image table media | hr charmap fontawesome zhuyin inputfield textborder cleartableborder draw | removeformat | searchreplace visualblocks fullscreen preview code',
+          toolbar: 'undo redo | formatselect fontsize fontsizeinput | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link anchor image table media | hr charmap fontawesome zhuyin inputfield textborder cleartableborder draw shapes | removeformat | searchreplace visualblocks fullscreen preview code',
           fontsize_formats: '8pt 10pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt 72pt',
-          extended_valid_elements: 'i[class|style],div[*],span[*]',
+          extended_valid_elements: 'i[class|style],div[*],span[*],svg[*],circle[*],rect[*],polygon[*],path[*]',
           valid_children: '+body[style],+div[div|span|img],+span[span]',
           custom_elements: 'image-input-wrapper,draggable-input',
           image_title: true,
@@ -548,6 +548,124 @@ export default {
               }
             })
             
+            // 添加圖形按鈕
+            editor.ui.registry.addButton('shapes', {
+              text: '圖形',
+              onAction: () => {
+                editor.windowManager.open({
+                  title: '插入圖形',
+                  body: {
+                    type: 'panel',
+                    items: [
+                      {
+                        type: 'selectbox',
+                        name: 'shape',
+                        label: '圖形',
+                        items: [
+                          { text: '圓形', value: 'circle' },
+                          { text: '正方形', value: 'square' },
+                          { text: '矩形', value: 'rectangle' },
+                          { text: '三角形', value: 'triangle' },
+                          { text: '星形', value: 'star' },
+                          { text: '心形', value: 'heart' }
+                        ]
+                      },
+                      {
+                        type: 'input',
+                        name: 'size',
+                        label: '大小 (px)',
+                        placeholder: '100'
+                      },
+                      {
+                        type: 'colorinput',
+                        name: 'color',
+                        label: '顏色'
+                      },
+                      {
+                        type: 'colorinput',
+                        name: 'stroke',
+                        label: '框線顏色'
+                      },
+                      {
+                        type: 'input',
+                        name: 'strokeWidth',
+                        label: '框線粗細 (px)',
+                        placeholder: '0'
+                      },
+                      {
+                        type: 'selectbox',
+                        name: 'strokeStyle',
+                        label: '框線樣式',
+                        items: [
+                          { text: '實線', value: 'solid' },
+                          { text: '虛線', value: 'dashed' },
+                          { text: '點線', value: 'dotted' }
+                        ]
+                      },
+                      {
+                        type: 'input',
+                        name: 'rotate',
+                        label: '旋轉角度',
+                        placeholder: '0'
+                      }
+                    ]
+                  },
+                  buttons: [
+                    { type: 'cancel', text: '取消' },
+                    { type: 'submit', text: '插入', primary: true }
+                  ],
+                  initialData: {
+                    shape: 'circle',
+                    size: '100',
+                    color: 'transparent',
+                    stroke: '#000000',
+                    strokeWidth: '2',
+                    strokeStyle: 'solid',
+                    rotate: '0'
+                  },
+                  onSubmit: (api) => {
+                    const data = api.getData()
+                    const size = parseInt(data.size) || 100
+                    const color = data.color || '#8bc34a'
+                    const stroke = data.stroke || '#000000'
+                    const strokeWidth = parseInt(data.strokeWidth) || 0
+                    const strokeStyle = data.strokeStyle || 'solid'
+                    const rotate = parseInt(data.rotate) || 0
+                    let dashArray = ''
+                    if (strokeStyle === 'dashed') dashArray = 'stroke-dasharray="5,3"'
+                    else if (strokeStyle === 'dotted') dashArray = 'stroke-dasharray="1,2"'
+                    const strokeAttr = strokeWidth > 0 ? `stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray}` : ''
+                    const rotateStyle = rotate !== 0 ? ` style="transform: rotate(${rotate}deg);"` : ''
+                    let svg = ''
+                    
+                    switch(data.shape) {
+                      case 'circle':
+                        svg = `<img src="data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='${color}' ${strokeAttr}/></svg>`)}"${rotateStyle}/>`
+                        break
+                      case 'square':
+                        svg = `<img src="data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 100 100'><rect x='5' y='5' width='90' height='90' fill='${color}' ${strokeAttr}/></svg>`)}"${rotateStyle}/>`
+                        break
+                      case 'rectangle':
+                        svg = `<img src="data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${size * 1.5}' height='${size}' viewBox='0 0 150 100'><rect x='5' y='5' width='140' height='90' fill='${color}' ${strokeAttr}/></svg>`)}"${rotateStyle}/>`
+                        break
+                      case 'triangle':
+                        svg = `<img src="data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 100 100'><polygon points='50,10 90,90 10,90' fill='${color}' ${strokeAttr}/></svg>`)}"${rotateStyle}/>`
+                        break
+                      case 'star':
+                        svg = `<img src="data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 100 100'><polygon points='50,10 61,40 95,40 68,60 79,90 50,70 21,90 32,60 5,40 39,40' fill='${color}' ${strokeAttr}/></svg>`)}"${rotateStyle}/>`
+                        break
+                      case 'heart':
+                        svg = `<img src="data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 100 100'><path d='M50,90 C20,70 5,50 5,35 C5,20 15,10 27,10 C35,10 42,15 50,25 C58,15 65,10 73,10 C85,10 95,20 95,35 C95,50 80,70 50,90 Z' fill='${color}' ${strokeAttr}/></svg>`)}"${rotateStyle}/>`
+                        break
+                    }
+                    
+                    editor.insertContent(svg + '&nbsp;')
+                    api.close()
+                  }
+                })
+              }
+            })
+            
             // 添加塗鴉按鈕
             editor.ui.registry.addButton('draw', {
               text: '塗鴉',
@@ -558,7 +676,54 @@ export default {
                 
                 window.addEventListener('message', (event) => {
                   if (event.data.type === 'insertDrawing') {
-                    editor.insertContent(`<img src="${event.data.data}" alt="塗鴉" style="max-width: 100%; height: auto;" />`)
+                    editor.windowManager.open({
+                      title: '塗鴉框線設定',
+                      body: {
+                        type: 'panel',
+                        items: [
+                          {
+                            type: 'colorinput',
+                            name: 'borderColor',
+                            label: '框線顏色'
+                          },
+                          {
+                            type: 'input',
+                            name: 'borderWidth',
+                            label: '框線粗細 (px)',
+                            placeholder: '2'
+                          },
+                          {
+                            type: 'selectbox',
+                            name: 'borderStyle',
+                            label: '框線樣式',
+                            items: [
+                              { text: '實線', value: 'solid' },
+                              { text: '虛線', value: 'dashed' },
+                              { text: '點線', value: 'dotted' },
+                              { text: '無框線', value: 'none' }
+                            ]
+                          }
+                        ]
+                      },
+                      buttons: [
+                        { type: 'cancel', text: '取消' },
+                        { type: 'submit', text: '插入', primary: true }
+                      ],
+                      initialData: {
+                        borderColor: '#000000',
+                        borderWidth: '2',
+                        borderStyle: 'solid'
+                      },
+                      onSubmit: (api) => {
+                        const data = api.getData()
+                        const borderColor = data.borderColor || '#000'
+                        const borderWidth = data.borderWidth || '2'
+                        const borderStyle = data.borderStyle || 'solid'
+                        const border = borderStyle === 'none' ? 'none' : `${borderWidth}px ${borderStyle} ${borderColor}`
+                        editor.insertContent(`<img src="${event.data.data}" alt="塗鴉" style="max-width: 100%; height: auto; border: ${border};" />`)
+                        api.close()
+                      }
+                    })
                   }
                 }, { once: true })
               }
