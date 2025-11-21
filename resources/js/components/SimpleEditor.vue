@@ -339,11 +339,12 @@ export default {
           menubar: 'edit insert view format table tools',
           plugins: 'lists link image table media code fullscreen searchreplace wordcount visualblocks charmap anchor preview',
           toolbar_mode: 'wrap',
-          toolbar: 'undo redo | formatselect fontsize fontsizeinput | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link anchor image table media | hr charmap fontawesome zhuyin inputfield textborder cleartableborder draw shapes button | removeformat | searchreplace visualblocks fullscreen code',
+          toolbar: 'undo redo | formatselect fontsize fontsizeinput | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link anchor image table media | hr charmap fontawesome zhuyin inputfield textborder cleartableborder draw drawonimage shapes button | removeformat | searchreplace visualblocks fullscreen code',
           fontsize_formats: '8pt 10pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt 72pt',
-          extended_valid_elements: 'i[class|style],div[*],span[*],svg[*],circle[*],rect[*],polygon[*],path[*]',
-          valid_children: '+body[style],+div[div|span|img],+span[span]',
-          custom_elements: 'image-input-wrapper,draggable-input',
+          valid_elements: '*[*]',
+          extended_valid_elements: 'i[*]',
+          valid_children: '+body[style],+div[div|span|img],+span[span|i]',
+          entity_encoding: 'raw',
           image_title: true,
           automatic_uploads: true,
           file_picker_types: 'image',
@@ -549,6 +550,8 @@ export default {
               let initialData = {
                 text: '點擊這裡',
                 link: '',
+                linkType: 'url',
+                bgImage: '',
                 bgColor: '#8bc34a',
                 textColor: '#ffffff',
                 size: 'medium'
@@ -556,7 +559,14 @@ export default {
               
               if (existingButton) {
                 initialData.text = existingButton.textContent
-                initialData.link = existingButton.getAttribute('data-link') || ''
+                const link = existingButton.getAttribute('data-link') || ''
+                initialData.bgImage = existingButton.getAttribute('data-bgimage') || ''
+                if (link === '/draw') {
+                  initialData.linkType = 'draw'
+                } else {
+                  initialData.linkType = 'url'
+                  initialData.link = link
+                }
                 initialData.bgColor = existingButton.style.background || '#8bc34a'
                 initialData.textColor = existingButton.style.color || '#ffffff'
                 const padding = existingButton.style.padding
@@ -577,10 +587,25 @@ export default {
                       placeholder: '點擊這裡'
                     },
                     {
+                      type: 'selectbox',
+                      name: 'linkType',
+                      label: '連結類型',
+                      items: [
+                        { text: '網址', value: 'url' },
+                        { text: '塗鴉頁面', value: 'draw' }
+                      ]
+                    },
+                    {
                       type: 'input',
                       name: 'link',
-                      label: '連結 (可選)',
+                      label: '網址',
                       placeholder: 'https://'
+                    },
+                    {
+                      type: 'input',
+                      name: 'bgImage',
+                      label: '塗鴉背景圖 (可選)',
+                      placeholder: '圖片網址'
                     },
                     {
                       type: 'colorinput',
@@ -619,7 +644,17 @@ export default {
                 onSubmit: (api) => {
                   const data = api.getData()
                   const text = data.text || '按鈕'
-                  const link = data.link || '#'
+                  const linkType = data.linkType || 'url'
+                  let link = '#'
+                  let bgImage = ''
+                  
+                  if (linkType === 'draw') {
+                    link = '/draw'
+                    bgImage = data.bgImage || ''
+                  } else {
+                    link = data.link || '#'
+                  }
+                  
                   const bgColor = data.bgColor || '#8bc34a'
                   const textColor = data.textColor || '#ffffff'
                   const size = data.size || 'medium'
@@ -634,7 +669,7 @@ export default {
                     fontSize = '16px'
                   }
                   
-                  const buttonHtml = `<span class="custom-button" data-link="${link}" contenteditable="false" style="display: inline-block; padding: ${padding}; background: ${bgColor}; color: ${textColor}; text-decoration: none; border-radius: 4px; font-size: ${fontSize}; font-weight: 500; cursor: pointer; user-select: all;">${text}</span>`
+                  const buttonHtml = `<span class="custom-button" data-link="${link}" data-bgimage="${bgImage}" contenteditable="false" style="display: inline-block; padding: ${padding}; background: ${bgColor}; color: ${textColor}; text-decoration: none; border-radius: 4px; font-size: ${fontSize}; font-weight: 500; cursor: pointer; user-select: all;">${text}</span>`
                   
                   if (existingButton) {
                     existingButton.outerHTML = buttonHtml
@@ -845,6 +880,34 @@ export default {
               }
             })
             
+            // 添加在圖片上畫線按鈕
+            editor.ui.registry.addButton('drawonimage', {
+              text: '圖片畫線',
+              onAction: () => {
+                const selectedNode = editor.selection.getNode()
+                if (selectedNode.tagName !== 'IMG') {
+                  editor.notificationManager.open({
+                    text: '請先選擇圖片',
+                    type: 'warning',
+                    timeout: 2000
+                  })
+                  return
+                }
+                
+                const imgSrc = selectedNode.src
+                const drawWindow = window.open(`/draw?bgImage=${encodeURIComponent(imgSrc)}`, '在圖片上畫線')
+                if (drawWindow) drawWindow.moveTo(0, 0)
+                if (drawWindow) drawWindow.resizeTo(screen.availWidth, screen.availHeight)
+                
+                window.addEventListener('message', (event) => {
+                  if (event.data.type === 'insertDrawing') {
+                    selectedNode.src = event.data.data
+                    editor.fire('change')
+                  }
+                }, { once: true })
+              }
+            })
+            
             // 添加插入輸入欄位按鈕
             editor.ui.registry.addButton('inputfield', {
               text: '輸入欄',
@@ -989,9 +1052,45 @@ export default {
             })
             
             editor.on('change keyup', () => {
-              const content = editor.getContent()
-              this.content = content
-              this.$emit('input', content)
+              try {
+                const content = editor.getContent({ format: 'html' })
+                this.content = content
+                this.$emit('input', content)
+              } catch (error) {
+                console.error('getContent error:', error)
+                // 如果序列化失敗，直接使用 body innerHTML
+                const body = editor.getBody()
+                if (body) {
+                  this.content = body.innerHTML
+                  this.$emit('input', body.innerHTML)
+                }
+              }
+            })
+            
+            // 防止 Font Awesome 圖標在換行時被複製
+            editor.on('keyup', (e) => {
+              if (e.key === 'Enter') {
+                setTimeout(() => {
+                  const body = editor.getBody()
+                  const icons = body.querySelectorAll('i[class*="fa-"]')
+                  const seen = new Set()
+                  
+                  icons.forEach(icon => {
+                    const key = icon.className + icon.textContent + (icon.previousSibling ? icon.previousSibling.textContent : '')
+                    const nextSibling = icon.nextSibling
+                    
+                    // 如果下一個節點是換行且下一行第一個也是相同圖標，刪除第一個
+                    if (nextSibling && nextSibling.tagName === 'BR') {
+                      const nextLine = nextSibling.nextSibling
+                      if (nextLine && nextLine.tagName === 'I' && nextLine.className === icon.className) {
+                        icon.remove()
+                      }
+                    }
+                  })
+                  
+                  editor.fire('change')
+                }, 10)
+              }
             })
             
             // 方向鍵自動跳過注音節點和零寬空格
@@ -1094,6 +1193,18 @@ export default {
           },
           init_instance_callback: (editor) => {
             this.editor = editor
+            
+            // 自訂序列化器處理 i 標籤
+            if (editor.serializer) {
+              editor.serializer.addNodeFilter('i', (nodes) => {
+                nodes.forEach(node => {
+                  if (!node.attr('class')) {
+                    node.attr('class', '')
+                  }
+                })
+              })
+            }
+            
             if (this.value) {
               editor.setContent(this.value)
             }

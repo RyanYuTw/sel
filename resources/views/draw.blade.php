@@ -49,8 +49,23 @@
         let currentColor = '#000000';
         let currentSize = 3;
         
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // 檢查是否有背景圖片
+        const urlParams = new URLSearchParams(window.location.search);
+        const bgImage = urlParams.get('bgImage');
+        
+        if (bgImage) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+            };
+            img.src = decodeURIComponent(bgImage);
+        } else {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
         
         canvas.addEventListener('mousedown', (e) => {
             drawing = true;

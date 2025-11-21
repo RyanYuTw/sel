@@ -53,6 +53,7 @@ class HandbookController extends Controller
     public function preview(Handbook $handbook)
     {
         $title = "{$handbook->year}年 第{$handbook->grade}年級 {$handbook->semester}學期 {$handbook->lesson}";
-        return view('preview', ['title' => $title, 'content' => $handbook->content]);
+        $content = html_entity_decode($handbook->content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        return view('preview', ['title' => $title, 'content' => $content]);
     }
 }

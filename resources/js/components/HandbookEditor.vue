@@ -144,21 +144,14 @@ export default {
     async loadHandbook() {
       const response = await fetch(`/api/handbooks/${this.id}`)
       const data = await response.json()
-      this.handbook = {
-        ...data,
-        content: this.decodeHtml(data.content || '')
-      }
+      this.handbook = data
       this.isPublished = data.status === 1
     },
     togglePublish() {
       this.handbook.status = this.isPublished ? 1 : 0
       this.handbook.published_at = this.isPublished ? Math.floor(Date.now() / 1000) : 0
     },
-    decodeHtml(html) {
-      const txt = document.createElement('textarea')
-      txt.innerHTML = html
-      return txt.value
-    },
+
     async saveHandbook() {
       const method = this.id ? 'PUT' : 'POST'
       const url = this.id ? `/api/handbooks/${this.id}` : '/api/handbooks'

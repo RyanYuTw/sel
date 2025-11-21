@@ -146,9 +146,14 @@
                 button.style.cursor = 'pointer';
                 button.addEventListener('click', function() {
                     const link = this.getAttribute('data-link');
+                    const bgImage = this.getAttribute('data-bgimage');
                     if (link && link !== '#') {
                         if (link === '/draw') {
-                            const drawWindow = window.open(link, '塗鴉');
+                            let drawUrl = '/draw';
+                            if (bgImage) {
+                                drawUrl += '?bgImage=' + encodeURIComponent(bgImage);
+                            }
+                            const drawWindow = window.open(drawUrl, '塗鴉');
                             if (drawWindow) {
                                 drawWindow.moveTo(0, 0);
                                 drawWindow.resizeTo(screen.availWidth, screen.availHeight);
