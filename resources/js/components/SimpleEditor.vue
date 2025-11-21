@@ -405,7 +405,7 @@ export default {
             .light-tone { position: absolute; top: -0.6em; left: 0; right: 0; text-align: center; font-size: 0.7em; color: #000; }
             .image-input-wrapper { position: relative; display: inline-block; max-width: 100%; }
             .image-input-wrapper img { display: block; max-width: 100%; height: auto; }
-            .draggable-input { position: absolute; background: transparent; border: none; border-bottom: 1px solid #000; padding: 2px 4px; cursor: move; z-index: 10; user-select: none; min-width: 30px; writing-mode: horizontal-tb; text-orientation: mixed; }
+            .draggable-input { position: absolute; background: transparent; border: none; border-bottom: 1px solid #000; padding: 2px 4px; cursor: move; z-index: 10; user-select: none; min-width: 30px; writing-mode: horizontal-tb !important; text-orientation: mixed !important; direction: ltr !important; margin: 0; font-size: 14px; line-height: 1.5; transform: translateY(3px); text-align: center; }
             .draggable-input[contenteditable="true"] { cursor: text; border-bottom: 2px solid #000; }
             p { word-wrap: break-word; overflow-wrap: break-word; }
           `,
@@ -811,6 +811,10 @@ export default {
                   const topPercent = input.getAttribute('data-top-percent')
                   if (leftPercent) input.style.left = leftPercent + '%'
                   if (topPercent) input.style.top = topPercent + '%'
+                  input.style.writingMode = 'horizontal-tb'
+                  input.style.textOrientation = 'mixed'
+                  input.style.direction = 'ltr'
+                  input.contentEditable = 'false'
                   this.makeDraggable(editor, input, wrapper)
                 })
               })

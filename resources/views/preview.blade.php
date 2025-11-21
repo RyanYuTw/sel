@@ -112,6 +112,9 @@
         .draggable-input-wrapper {
             position: absolute;
             z-index: 10;
+            margin: 0;
+            padding: 0;
+            transform: translateY(18px);
         }
         .draggable-input-wrapper input {
             background: transparent;
@@ -121,8 +124,10 @@
             cursor: text;
             min-width: 30px;
             outline: none;
-            font-size: inherit;
-            font-family: inherit;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            text-align: center;
         }
         .draggable-input-wrapper input:focus {
             border-bottom: 2px solid #000;
